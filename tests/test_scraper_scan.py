@@ -402,3 +402,92 @@ def test_run_launches_browser_when_pages_are_missing(tmp_path: Path, monkeypatch
     assert launched == ["yes"]
     assert result.error is not None
     assert result.exit_code == 1
+
+
+# --------------------------------------------------------------- GUI 用的钩子
+
+
+def test_progress_hook_only_reports_intentional_pages(tmp_path: Path) -> None:
+    """进度回调只报正式页（顺手缓存的页不该算进度）。"""
+    settings = Settings(
+        ebook_id="1",
+        start_page=1,
+        end_page=7,
+        book_root=str(tmp_path / "book"),
+        log_dir=str(tmp_path / "logs"),
+    )
+    seen: list[tuple[int, bool]] = []
+    scraper = Scraper(settings, on_page=lambda page, intentional: seen.append((page, intentional)))
+
+    reader = FakeReader(10)  # 从 p10 往回抓 1-7，路上会缓存 8/9/10
+    scraper._scrape(
+        reader,  # type: ignore[arg-type]
+        FakeParser(reader),
+        BookStore(tmp_path / "book" / "测试书_1"),
+        {},
+        "测试书",
+    )
+
+    assert [page for page, _ in seen] == [7, 6, 5, 4, 3, 2, 1]
+    assert all(intentional for _, intentional in seen)
+    assert 8 not in [page for page, _ in seen], "仅缓存的页不该回调"
+
+
+def test_stop_request_keeps_what_was_captured(tmp_path: Path) -> None:
+    """停止后：已抓的页照常聚合，剩下的进"未完成页"，重跑即续抓。"""
+    settings = Settings(
+        ebook_id="1",
+        start_page=1,
+        end_page=7,
+        book_root=str(tmp_path / "book"),
+        log_dir=str(tmp_path / "logs"),
+    )
+    seen: list[int] = []
+    stop: dict[str, bool] = {"now": False}
+
+    def on_page(page_no: int, intentional: bool) -> None:
+        seen.append(page_no)
+        if len(seen) >= 3:  # 抓满 3 页就按下"停止"
+            stop["now"] = True
+
+    scraper = Scraper(settings, on_page=on_page, stop_requested=lambda: stop["now"])
+    reader = FakeReader(1)
+    result = scraper._scrape(
+        reader,  # type: ignore[arg-type]
+        FakeParser(reader),
+        BookStore(tmp_path / "book" / "测试书_1"),
+        {},
+        "测试书",
+    )
+
+    assert seen == [1, 2, 3]
+    assert result.stopped is True
+    assert result.pages_fetched == 3
+    assert result.incomplete_pages == [4, 5, 6, 7]
+    # 已抓的 3 页仍然聚合成章节（停止 ≠ 丢数据）
+    assert result.written is not None and len(result.written.txt) == 3
+    assert "已手动停止" in "\n".join(result.summary_lines())
+
+
+def test_stop_before_start_does_nothing(tmp_path: Path) -> None:
+    """一上来就要求停止（GUI 里点了停止又点了开始）：不该抓任何页，但也不该报错。"""
+    settings = Settings(
+        ebook_id="1",
+        start_page=1,
+        end_page=3,
+        book_root=str(tmp_path / "book"),
+        log_dir=str(tmp_path / "logs"),
+    )
+    scraper = Scraper(settings, stop_requested=lambda: True)
+    reader = FakeReader(1)
+    result = scraper._scrape(
+        reader,  # type: ignore[arg-type]
+        FakeParser(reader),
+        BookStore(tmp_path / "book" / "测试书_1"),
+        {},
+        "测试书",
+    )
+
+    assert result.stopped is True
+    assert result.pages_fetched == 0
+    assert reader.loads == [], "不该翻任何页"

@@ -24,7 +24,7 @@ dev = [
 douban-reader = "douban_reader.cli:main"
 
 [tool.setuptools]
-packages = ["douban_reader"]
+packages = ["douban_reader", "douban_reader.gui"]
 
 [tool.setuptools.package-data]
 douban_reader = ["js/*.js", "js/*.sha256"]
@@ -55,9 +55,10 @@ quote-style = "double"
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# 默认只跑离线测试；需要真实 Chrome 的烟囱测试用 `pytest -m browser` 单独运行
-addopts = '-q --strict-markers -m "not browser"'
+# 默认只跑离线测试；需要 Chrome / 图形环境的测试用 `pytest -m browser` / `-m gui` 单独运行
+addopts = '-q --strict-markers -m "not browser and not gui"'
 markers = [
     "golden: 依赖 book/ 下真实抓取快照的回归测试（数据缺失时自动跳过）",
     "browser: 需要本机 Chrome 的烟囱测试（pytest -m browser，环境不可用时自动跳过）",
+    "gui: 需要图形环境（tkinter）的界面测试（pytest -m gui，无图形环境时自动跳过）",
 ]

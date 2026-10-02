@@ -7,13 +7,33 @@
 
 ---
 
-## 快速开始
+## 怎么用
+
+### 方式一：图形界面（不想记命令就用这个）
+
+**双击 `run_gui.cmd`** 即可，无需装任何额外依赖（界面是 Python 自带的 tkinter 写的）。
+
+界面上要填的就四个东西：**电子书 ID**（阅读器地址 `read.douban.com/reader/ebook/【这串数字】/` 里那串数字）、**起始页**、**结束页**，以及 cookie 文件（默认 `cookie.txt`，点「怎么填?」有图文步骤）。
+
+| 按钮 | 作用 |
+| --- | --- |
+| 检查计划 | **不联网、不开浏览器**，告诉你这本书已经缓存了多少页、还差哪些页 |
+| 开始抓取 | 正式抓取；打开浏览器，逐页抓取并随时在下方日志区显示进度 |
+| 只重建章节（离线） | 不联网，只用本地缓存重新生成 `chapter/` 与 `json/` |
+| 停止 | 当前页抓完就停；已抓内容照常保存，再点一次「开始抓取」即可续抓 |
+| 打开输出目录 / 打开日志 | 在资源管理器里打开产物目录、最新日志 |
+| 保存为默认配置 | 把当前表单写进 `config.local.toml`，命令行 `run.cmd` 也会用它 |
+
+界面底部是**实时日志**，抓取过程中能看到「[计划] …」「[正式] p7 …」「[停止] …」这类信息，和命令行完全一致。
+
+> 双击没反应？先用带控制台的方式启动看报错：`.venv\Scripts\python.exe -m douban_reader.gui`，
+> 或者看 `logs\gui-error-*.log`（用 `pythonw` 启动时没有控制台，错误会写在这里）。
+
+### 方式二：命令行
 
 ```cmd
-:: 1) 依赖（首次）
+:: 1) 依赖（首次；已装好可跳过）
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-::    开发依赖（pytest + ruff）
-.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
 :: 2) 放置 cookie（见下一节）
 
@@ -24,19 +44,20 @@ run.cmd --dry-run
 run.cmd
 ```
 
-三种等价入口，任选：
+四种等价入口，任选：
 
 | 入口 | 说明 |
 | --- | --- |
-| `run.cmd` | 自动用 `.venv`，参数原样透传 |
+| `run_gui.cmd` | 图形界面（双击即可） |
+| `run.cmd` | 命令行，自动用 `.venv`，参数原样透传 |
 | `python -m douban_reader` | 标准方式，在项目根目录执行 |
 | `python main.py` | 兼容旧习惯的薄封装（内容只有 5 行） |
 
 ### 获取 / 更新 cookie
 
-1. 浏览器登录豆瓣阅读，打开 `https://read.douban.com/reader/ebook/450696/`；
-2. F12 → Network → 任选一个请求 → 复制 `Cookie` 请求头的值；
-3. 整行粘贴覆盖 `cookie.txt`（纯文本 `k=v; k=v` 与 JSON 两种格式都支持）。
+1. 浏览器登录豆瓣阅读，打开这本电子书的阅读页（`https://read.douban.com/reader/ebook/450696/`）；
+2. F12 → Network 面板 → 刷新 → 点任意一条发往 `read.douban.com` 的请求 → Headers → Request Headers；
+3. 复制 `Cookie` 那一行的**值**（不要带 `Cookie:` 前缀），整行粘贴覆盖 `cookie.txt`。
 
 `cookie.txt` 已在 `.gitignore` 里，**不会被提交**；格式示例见 `cookie.example.txt`。
 cookie 失效时程序会明确报出来并以退出码 `2` 结束，不会用空内容静默重试。
@@ -53,7 +74,8 @@ douban_reader/                 项目根目录（外层）与内层同名包是�
 ├─ config.local.toml         个人覆盖（可选，已 gitignore）
 ├─ cookie.txt                凭据（已 gitignore）
 ├─ cookie.example.txt        凭据格式示例
-├─ run.cmd / main.py         入口
+├─ run.cmd / run_gui.cmd     命令行 / 图形界面入口
+├─ main.py                   兼容入口（等价于 python -m douban_reader）
 ├─ douban_reader/            代码包
 │   ├─ settings.py           配置装配（默认值 < toml < 命令行）
 │   ├─ logging_setup.py      日志装配（控制台 INFO / 文件 DEBUG）
@@ -70,8 +92,11 @@ douban_reader/                 项目根目录（外层）与内层同名包是�
 │   ├─ storage.py            pages 缓存 / 插图 / 章节落盘
 │   ├─ scraper.py            策略编排
 │   ├─ cli.py                命令行入口
+│   ├─ gui/                  图形界面（tkinter，标准库）
+│   │   ├─ controller.py     表单↔配置、离线计划、后台任务、事件队列（无 tkinter，可单测）
+│   │   └─ app.py            界面控件与线程间通信
 │   └─ js/                   parse_page.js（DOM 解析）+ stealth.min.js（vendored）
-├─ tests/                    离线测试 + 可选浏览器烟囱测试
+├─ tests/                    离线测试 + 可选浏览器/GUI 测试
 ├─ book/                     抓取产物（已 gitignore）
 └─ logs/                     运行日志（已 gitignore）
 ```
@@ -201,7 +226,8 @@ book/<书名>_<ebook_id>/
 | 章节少了 | 该页没抓到（退出码 `3`），看日志里的「未完成页」并重跑 |
 | 想重新生成全部章节 | `run.cmd --rebuild-only`（不联网） |
 
-日志在 `logs/run-<时间戳>.log`，文件里始终是 DEBUG 级别；控制台级别由 `log_level` 控制。
+日志在 `logs/<动作>-<时间戳>.log`（命令行是 `run-*.log`，界面是 `scrape-*.log` / `rebuild-*.log`），
+文件里始终是 DEBUG 级别；控制台级别由 `log_level` 控制。
 
 ---
 
@@ -211,21 +237,26 @@ book/<书名>_<ebook_id>/
 .venv\Scripts\python.exe -m pytest            :: 离线测试（默认，不发网络、不启动浏览器）
 .venv\Scripts\python.exe -m pytest -m golden  :: 只跑金标准回归
 .venv\Scripts\python.exe -m pytest -m browser :: 需要本机 Chrome 的烟囱测试
+.venv\Scripts\python.exe -m pytest -m gui     :: 需要图形环境的界面测试（隐藏窗口，不打扰你）
 .venv\Scripts\python.exe -m ruff check .      :: 静态检查
 .venv\Scripts\python.exe -m ruff format .     :: 格式化
 ```
 
-测试分三类，边界很清楚：
+测试分四类，边界很清楚：
 
-* **纯逻辑测试**：`cookies` / `chapters` / `parsing` / `storage` / `settings` / `cli` ——
-  这几块都不依赖浏览器，所以能测、也就必须测；
+* **纯逻辑测试**：`cookies` / `chapters` / `parsing` / `storage` / `settings` / `cli` / `gui.controller` ——
+  这几块都不依赖浏览器或图形环境，所以能测、也就必须测。
+  GUI 的界面逻辑（表单↔配置、离线计划、后台任务、日志与进度事件）全在 `gui/controller.py`，
+  `gui/app.py` 只负责摆控件，这样"能不能正常用"不靠手点来验证；
 * **金标准回归**（`golden`）：直接吃 `book/<书名>_<id>/pages/*.json` 这份真实抓取快照，
   对照 `tests/fixtures/legacy_output_manifest.json`（**重构前实现的输出指纹**，
   只存 sha256 与行数、不含书稿正文），证明重构前后逐章等价，且去重只删掉 88 处分页重复段。
   换机器没有快照时会自动跳过；
 * **浏览器烟囱**（`browser`）：用 `tests/fixtures/reader_page.html` 这个仿阅读器 DOM 的本地页面
-  驱动真实 Chrome，验证 stealth 是否生效、选择器能否命中、翻页等待是否可靠、JS 解析是否正确。
-  默认不跑（Chrome 不可用时自动跳过）。
+  驱动真实 Chrome，验证 stealth 是否生效、选择器能否命中、翻页等待是否可靠、JS 解析是否正确，
+  还有一个本地 HTTP 服务用来证明"cookie 注入后目标页只加载一次"。默认不跑（Chrome 不可用时自动跳过）；
+* **界面烟囱**（`gui`）：真实创建 Tk 窗口但**隐藏**，验证界面能搭起来、按钮状态、进度与结束处理不炸。
+  默认不跑（无图形环境时自动跳过）。
 
 ### 改动约定
 

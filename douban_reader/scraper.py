@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,7 @@ class ScrapeResult:
     written: WrittenBook | None = None
     error: str | None = None
     error_exc: Exception | None = field(default=None, repr=False)
+    stopped: bool = False  # 是否被手动停止（GUI 的"停止"按钮）
 
     @property
     def ok(self) -> bool:
@@ -78,6 +80,9 @@ class ScrapeResult:
                 return ExitCode.CONFIG
             if isinstance(exc, NavigationError):
                 return ExitCode.NAVIGATION
+            return ExitCode.UNEXPECTED
+        if self.error:
+            # 只有错误文本、没有异常对象时也绝不能算成功
             return ExitCode.UNEXPECTED
         if self.incomplete_pages:
             return ExitCode.PARTIAL
@@ -101,16 +106,52 @@ class ScrapeResult:
             preview = ", ".join(str(p) for p in self.incomplete_pages[:20])
             more = "..." if len(self.incomplete_pages) > 20 else ""
             lines.append(f"未完成页      {len(self.incomplete_pages)} 页（{preview}{more}）")
+        if self.stopped:
+            lines.append("运行状态      已手动停止（已抓内容已保留，重跑即续抓）")
         if self.error:
             lines.append(f"错误          {self.error}")
         return lines
 
 
 class Scraper:
-    """一次运行的执行者。"""
+    """一次运行的执行者。
 
-    def __init__(self, settings: Settings) -> None:
+    Args:
+        settings: 本次运行的配置。
+        on_page: 每成功落盘一个**正式页**时回调 ``(页码, intentional)``。
+            仅缓存的页不回调。GUI 用它更新进度条。
+        stop_requested: 返回 True 时尽快停下来（GUI 的"停止"按钮）。
+            已抓到的内容照常聚合，未完成的页会出现在 ``incomplete_pages`` 里。
+    """
+
+    #: 连续失败达到这个次数就停下本轮（站点异常时不要反复敲）
+    MAX_CONSECUTIVE_FAILURES = 3
+
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        on_page: Callable[[int, bool], None] | None = None,
+        stop_requested: Callable[[], bool] | None = None,
+    ) -> None:
         self.settings = settings
+        self._on_page = on_page
+        self._stop_requested = stop_requested or (lambda: False)
+
+    def _notify_page(self, page_no: int, intentional: bool) -> None:
+        if self._on_page is None or not intentional:
+            return
+        try:
+            self._on_page(page_no, intentional)
+        except Exception as exc:  # noqa: BLE001 - 进度回调不能影响抓取
+            logger.debug("进度回调失败：%s", exc)
+
+    def _should_stop(self) -> bool:
+        try:
+            return bool(self._stop_requested())
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("停止检查失败：%s", exc)
+            return False
 
     # ------------------------------------------------------------ 离线：只聚合
 
@@ -192,9 +233,6 @@ class Scraper:
 
     # ------------------------------------------------------------ 抓取走位
 
-    #: 连续失败达到这个次数就停下本轮（站点异常时不要反复敲）
-    MAX_CONSECUTIVE_FAILURES = 3
-
     def _scrape(
         self,
         reader: Reader,
@@ -230,6 +268,7 @@ class Scraper:
         todo_set = set(todo)
         fetched = 0
         error: Exception | None = None
+        stopped = False
 
         logger.info(
             "[计划] 范围 %d-%d，已缓存 %d 页，待正式抓 %d 页",
@@ -273,6 +312,13 @@ class Scraper:
         try:
             consecutive = 0
             while True:
+                if self._should_stop():
+                    stopped = True
+                    logger.info(
+                        "[停止] 收到停止请求：本轮已抓 %d 页，未完成的页留待下次续抓", fetched
+                    )
+                    break
+
                 target = next_target()
                 if target is None:
                     break
@@ -332,6 +378,10 @@ class Scraper:
                     nxt = target + 1
                     if nxt > high or not is_pending(nxt):
                         break
+                    if self._should_stop():
+                        stopped = True
+                        logger.info("[停止] 收到停止请求：停在 p%d，未完成的页留待下次续抓", target)
+                        break
                     try:
                         reader.next_page()
                     except CookieExpiredError:
@@ -351,7 +401,12 @@ class Scraper:
                 logger.exception("抓取中断（未预期异常）")
         finally:
             result = self._finalize(
-                store, pages, fetched=fetched, book_title=book_title, error=error
+                store,
+                pages,
+                fetched=fetched,
+                book_title=book_title,
+                error=error,
+                stopped=stopped,
             )
 
         return result
@@ -406,6 +461,7 @@ class Scraper:
                 page.intentional = True
             pages[page.page] = page
             logger.info("  [%s] p%d %r", "正式" if intentional else "缓存", page_no, page.title)
+            self._notify_page(page_no, intentional)
             return True
 
         logger.error("p%d 重试 %d 次仍未抓到，跳过", page_no, settings.capture_retries)
@@ -422,6 +478,7 @@ class Scraper:
         book_title: str,
         error: Exception | None = None,
         report_incomplete: bool = True,
+        stopped: bool = False,
     ) -> ScrapeResult:
         settings = self.settings
         chapters = chapter_ops.build_chapters(
@@ -458,6 +515,7 @@ class Scraper:
             written=written,
             error=f"{type(error).__name__}: {error}" if error else None,
             error_exc=error,
+            stopped=stopped,
         )
         if result.incomplete_pages:
             logger.warning(

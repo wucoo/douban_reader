@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -42,17 +43,26 @@ def setup_logging(
     log_dir: Path | None = None,
     *,
     prefix: str = "run",
+    console: bool = True,
+    extra_handlers: Sequence[logging.Handler] = (),
 ) -> Path | None:
-    """装配根 logger，返回日志文件路径（未启用文件日志时返回 None）。"""
+    """装配根 logger，返回日志文件路径（未启用文件日志时返回 None）。
+
+    Args:
+        console: 是否挂控制台 handler。用 ``pythonw.exe`` 启动 GUI 时
+            ``sys.stdout`` 是 None，必须传 False，否则日志一写就会出问题。
+        extra_handlers: 额外挂上去的 handler（GUI 用它把日志转发到界面）。
+    """
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     for handler in list(root.handlers):
         root.removeHandler(handler)
 
-    console = logging.StreamHandler(stream=sys.stdout)
-    console.setLevel(_normalize_level(level))
-    console.setFormatter(logging.Formatter(_CONSOLE_FORMAT, datefmt=_DATE_FORMAT))
-    root.addHandler(console)
+    if console and sys.stdout is not None:
+        console_handler = logging.StreamHandler(stream=sys.stdout)
+        console_handler.setLevel(_normalize_level(level))
+        console_handler.setFormatter(logging.Formatter(_CONSOLE_FORMAT, datefmt=_DATE_FORMAT))
+        root.addHandler(console_handler)
 
     log_path: Path | None = None
     if log_dir is not None:
@@ -62,6 +72,10 @@ def setup_logging(
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(logging.Formatter(_FILE_FORMAT))
         root.addHandler(file_handler)
+
+    for handler in extra_handlers:
+        handler.setLevel(_normalize_level(level))
+        root.addHandler(handler)
 
     for name in _NOISY_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
