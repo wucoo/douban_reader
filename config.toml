@@ -24,7 +24,7 @@ stealth_js = ""            # 留空 = douban_reader/js/stealth.min.js
 log_dir = "logs"           # 运行日志目录（每次运行一个文件）
 
 # ---------- 浏览器 ----------
-headless = true           # true = 无头；调试 DOM 时用 false 方便肉眼看
+headless = false           # true = 无头；调试 DOM 时用 false 方便肉眼看
 page_load_timeout = 30.0   # 单页加载超时（秒）
 element_timeout = 10.0     # 通用元素等待超时（秒）
 user_data_dir = ""         # Chrome 用户数据目录（留空 = 每次全新会话）
@@ -36,8 +36,8 @@ blocked_urls = []          # 只在 block_resources = true 时生效的 URL 通�
 opportunistic = true       # 翻页路上经过的非目标页顺手缓存（intentional=false）
 max_direct = 15            # 距目标页 <= 此值逐页翻，> 此值走搜索跳页
 use_search_jump = true     # 允许使用搜索框跳页
-sleep_min = 0.5            # 每次翻页后的随机等待下限（秒），请勿调得过小
-sleep_max = 1            # 随机等待上限（秒）
+sleep_min = 1.5            # 每次翻页后的随机等待下限（秒），请勿调得过小
+sleep_max = 3.5            # 随机等待上限（秒）
 page_settle = 0.3          # 到达目标页后的稳定等待（秒）
 open_settle = 2.0          # 阅读器首屏就绪后的稳定等待（秒）
 open_timeout = 30.0        # 等待阅读器打开的总超时（秒）
