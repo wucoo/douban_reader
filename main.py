@@ -1,52 +1,14 @@
-# main.py
-from douban_reader import DoubanReader
+"""兼容入口：等价于 ``python -m douban_reader``。
 
-EBOOK_ID   = "450696"
-BOOK_TITLE = None
-ROOT_DIR   = None
-START_PAGE = 1
-END_PAGE   = 200
+保留这个文件只是为了让既有习惯（IDE 运行配置、双击运行）继续可用；
+真正的实现全在 ``douban_reader/`` 包里。
+"""
 
-COOKIE_FILE = "./cookie.txt"
+from __future__ import annotations
 
-OPPORTUNISTIC   = True
-MAX_DIRECT      = 15
-USE_SEARCH_JUMP = True
+import sys
 
-# 无头模式开关
-HEADLESS = False             # ← True = 无头，False = 有头
-
-
-def main():
-    with DoubanReader(
-        ebook_id=EBOOK_ID,
-        book_title=BOOK_TITLE,
-        cookie_file=COOKIE_FILE,
-        headless=HEADLESS,      # ← 传进来
-    ) as r:
-        r.open()
-        print(f"书名: {r.get_book_title()}")
-        print(f"总页数: {r.total_pages()}")
-
-        result = r.scrape_to_files(
-            start=START_PAGE,
-            end=END_PAGE,
-            root_dir=ROOT_DIR,
-            opportunistic=OPPORTUNISTIC,
-            max_direct=MAX_DIRECT,
-            use_search_jump=USE_SEARCH_JUMP,
-        )
-
-        print(f"\n本次正式抓取   {result['pages_fetched']} 页")
-        print(f"缓存总页数     {result['cached_pages']}")
-        print(f"其中正式页     {result['intentional_pages']}")
-        print(f"仅缓存(顺手)   {result['cache_only_pages']}")
-        print(f"输出章节       {len(result['txt'])} 个")
-        if result.get("error"):
-            print(f"⚠️  抓取过程出错: {result['error']}")
-        for p in result["txt"]:
-            print("  →", p)
-
+from douban_reader.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

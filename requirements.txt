@@ -1,0 +1,4 @@
+# 运行时依赖（与 pyproject.toml 的 [project].dependencies 保持一致）
+# 开发依赖见 requirements-dev.txt
+selenium>=4.20,<5
+requests>=2.31

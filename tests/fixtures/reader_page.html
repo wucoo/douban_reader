@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>小偶像 - 豆瓣阅读</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  aside.pagination { display: block; margin: 8px; }
+  aside.pagination a { display: inline-block; padding: 4px 8px; border: 1px solid #999; }
+</style>
+</head>
+<body>
+<!--
+  仿豆瓣阅读器 DOM 的离线夹具：用于验证选择器、JS 解析与翻页逻辑，
+  不访问任何真实站点。结构上的对应关系见 douban_reader/selectors.py。
+-->
+<div class="page-portal"><span class="total-num">200</span></div>
+
+<aside class="pagination">
+  <a class="turn-prev" href="#">上一页</a>
+  <a class="turn-next" href="#">下一页</a>
+</aside>
+
+<div id="ark-reader">
+  <div class="page curr-page" data-pagination="7">
+    <div class="hd"><h3><a href="#">小偶像</a></h3></div>
+    <div class="bd">
+      <div class="content">
+        <p class="headline">小偶像</p>
+        <p>第一段文字。</p>
+        <p class="illus">
+          <img data-orig-src="https://example.com/figure.jpg" src="placeholder.png" alt="img">
+          <span class="legend"><span class="text-content">图注：记忆里总有些光亮到难忘。</span></span>
+        </p>
+        <p>第二段文字<em>强调</em>结尾</p>
+        <p>   多余    空白   行   </p>
+        <p>   </p>
+        <div>非 p 标签应被忽略</div>
+        <p class="headline">内文小标题</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 模拟翻页：改写当前页的页码属性，用于验证 next_page / prev_page 的等待逻辑
+  const current = () => document.querySelector('#ark-reader .page.curr-page');
+  document.querySelector('.turn-next').addEventListener('click', (event) => {
+    event.preventDefault();
+    const el = current();
+    el.setAttribute('data-pagination', String(parseInt(el.getAttribute('data-pagination'), 10) + 1));
+  });
+  document.querySelector('.turn-prev').addEventListener('click', (event) => {
+    event.preventDefault();
+    const el = current();
+    el.setAttribute('data-pagination', String(parseInt(el.getAttribute('data-pagination'), 10) - 1));
+  });
+</script>
+</body>
+</html>

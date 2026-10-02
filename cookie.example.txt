@@ -1,0 +1,31 @@
+cookie 示例文件（下面的值全是假的，仅用于说明格式）
+================================================================
+
+怎么拿到真实 cookie
+  1. 浏览器登录豆瓣阅读，打开 https://read.douban.com/reader/ebook/450696/
+  2. F12 -> Network（网络）面板 -> 随便点一个发往 read.douban.com 的请求
+  3. 在 Request Headers 里找到 Cookie，复制它的整行值
+  4. 粘贴覆盖 cookie.txt（本文件不要改，它只是格式示例）
+
+格式一：请求头纯文本（最省事，推荐）
+  整行粘贴即可，程序会按 ";" 拆分；换行写也支持（会先合并再拆分）。
+  关键字段是 ark_session（登录态），其余是统计类 cookie。
+
+bid=aaaaaaaaaaaaaaaaaaaa; uaid=000000000; _ga=GA1.1.1111111111.1700000000; _gid=GA1.1.2222222222.1700000000; ark_session=ffffffffffffffffffffffffffffffff; ll="cn"; _gat=1
+
+格式二：JSON（从别的导出工具拿到的可以直接用）
+  顶层可以是数组，也可以是 {"cookies": [...]}；除 name/value 之外的字段
+  （domain / path / expiry / secure / httpOnly / sameSite）会被保留并传给浏览器。
+
+{
+  "cookies": [
+    {"name": "bid", "value": "aaaaaaaaaaaaaaaaaaaa", "domain": ".douban.com"},
+    {"name": "ark_session", "value": "ffffffffffffffffffffffffffffffff", "domain": ".douban.com"}
+  ]
+}
+
+说明
+  * cookie.txt 已在 .gitignore 中，不会被提交；请勿把它贴到聊天记录或工单里。
+  * 同名 cookie 出现多次时（浏览器导出常见，例如 _ga），程序按 (name, domain, path)
+    去重并保留最后一条，不会像旧实现那样刷一堆注入失败警告。
+  * cookie 失效时程序会明确报错并以退出码 2 结束：重新登录后更新 cookie.txt 再跑即可。

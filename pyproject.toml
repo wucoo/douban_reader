@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "douban-reader"
+version = "1.0.0"
+description = "豆瓣阅读电子书抓取器：Selenium 驱动、断点续抓、章节化输出"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Private" }
+dependencies = [
+    "selenium>=4.20,<5",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+douban-reader = "douban_reader.cli:main"
+
+[tool.setuptools]
+packages = ["douban_reader"]
+
+[tool.setuptools.package-data]
+douban_reader = ["js/*.js", "js/*.sha256"]
+
+# ---------------------------------------------------------------------------
+# 代码风格：ruff 同时负责 lint 与 format（line-length=100）
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",    # 行长由 formatter 控制，中文注释不强制折行
+    "SIM105",  # 允许空 except 前的 pass 之外写法
+    "N812",    # EC = selenium 官方文档的惯用别名（expected_conditions）
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["douban_reader"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# 测试：全部离线，禁止联网（金标准数据取自 book/ 下已抓取的 pages 快照）
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 默认只跑离线测试；需要真实 Chrome 的烟囱测试用 `pytest -m browser` 单独运行
+addopts = '-q --strict-markers -m "not browser"'
+markers = [
+    "golden: 依赖 book/ 下真实抓取快照的回归测试（数据缺失时自动跳过）",
+    "browser: 需要本机 Chrome 的烟囱测试（pytest -m browser，环境不可用时自动跳过）",
+]

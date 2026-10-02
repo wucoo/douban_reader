@@ -1,0 +1,56 @@
+# =============================================================================
+# douban-reader 默认配置
+#
+# 生效顺序（后者覆盖前者）：
+#     本文件  <  config.local.toml（可选，已 gitignore，放个人/临时改动）  <  命令行参数
+#
+# 所有相对路径都相对**项目根目录**（即本文件所在目录）解析，
+# 因此在任何工作目录下运行结果一致。
+# 键名写错会直接报错并列出可用键，不会静默失效。
+# =============================================================================
+
+# ---------- 目标与范围 ----------
+ebook_id = "450696"        # 阅读器地址中的电子书 ID
+book_title = ""            # 留空 = 自动从页面标题读取；填了就强制使用该书名做目录名
+start_page = 1             # 正式抓取范围（含）
+end_page = 200             # 正式抓取范围（含）
+
+# ---------- 路径 ----------
+book_root = "book"         # 书稿输出父目录；实际目录为 <book_root>/<书名>_<ebook_id>
+out_dir = ""               # 显式指定完整输出目录（留空 = 按上面的规则推导）
+cookie_file = "cookie.txt" # 浏览器复制出来的 cookie（纯文本或 JSON 均可）
+cookie_string = ""         # 也可以直接填 cookie 字符串，优先级低于 cookie_file 之外时用于临时覆盖
+stealth_js = ""            # 留空 = douban_reader/js/stealth.min.js
+log_dir = "logs"           # 运行日志目录（每次运行一个文件）
+
+# ---------- 浏览器 ----------
+headless = false           # true = 无头；调试 DOM 时用 false 方便肉眼看
+page_load_timeout = 30.0   # 单页加载超时（秒）
+element_timeout = 10.0     # 通用元素等待超时（秒）
+user_data_dir = ""         # Chrome 用户数据目录（留空 = 每次全新会话）
+chrome_driver_path = ""    # 留空 = 由 Selenium Manager 自动匹配驱动
+block_resources = false    # CDP 资源拦截总开关，详见 README「历史教训」
+blocked_urls = []          # 只在 block_resources = true 时生效的 URL 通配列表
+
+# ---------- 抓取策略 ----------
+opportunistic = true       # 翻页路上经过的非目标页顺手缓存（intentional=false）
+max_direct = 15            # 距目标页 <= 此值逐页翻，> 此值走搜索跳页
+use_search_jump = true     # 允许使用搜索框跳页
+sleep_min = 1.5            # 每次翻页后的随机等待下限（秒），请勿调得过小
+sleep_max = 3.5            # 随机等待上限（秒）
+page_settle = 0.3          # 到达目标页后的稳定等待（秒）
+open_settle = 2.0          # 阅读器首屏就绪后的稳定等待（秒）
+open_timeout = 30.0        # 等待阅读器打开的总超时（秒）
+nav_timeout = 20.0         # 单次翻页等待页码变化的超时（秒）
+search_timeout = 12.0      # 搜索跳页单步超时（秒）
+parse_retries = 4          # 单页内容解析重试次数
+capture_retries = 3        # 单页抓取重试次数
+image_timeout = 30.0       # 插图下载超时（秒）
+max_turns = 500            # 逐页翻页的最大步数（防死循环）
+
+# ---------- 输出 ----------
+save_json = true           # 是否输出 json/ 目录（chapter/ 的 txt 始终输出）
+dedupe_page_overlap = true # 去掉分页造成的"上页末段 == 下页首段"重复段（详见 README）
+
+# ---------- 日志 ----------
+log_level = "INFO"         # DEBUG / INFO / WARNING / ERROR（文件里始终记录 DEBUG）
