@@ -71,7 +71,11 @@ class FakeReader:
     def current_page(self) -> int:
         return self.page
 
-    def next_page(self) -> int:
+    def wait_for_page(self, target: int, *, timeout: float | None = None) -> bool:
+        """真实实现会等页码稳定到目标页；替身直接看当前页码。"""
+        return self.page == int(target)
+
+    def next_page(self, *, expect: int | None = None, timeout: float | None = None) -> int:
         self._arrive(self.page + 1, via_search=False)
         return self.page
 

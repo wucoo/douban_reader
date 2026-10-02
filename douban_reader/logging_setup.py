@@ -75,6 +75,9 @@ def setup_logging(
 
     for handler in extra_handlers:
         handler.setLevel(_normalize_level(level))
+        # 统一带上时间与级别：GUI 的日志区会被复制出来当排查材料
+        if handler.formatter is None:
+            handler.setFormatter(logging.Formatter(_CONSOLE_FORMAT, datefmt=_DATE_FORMAT))
         root.addHandler(handler)
 
     for name in _NOISY_LOGGERS:

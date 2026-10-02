@@ -80,6 +80,8 @@ class Settings:
     open_settle: float = 2.0
     open_timeout: float = 30.0
     nav_timeout: float = 20.0
+    turn_timeout: float = 5.0
+    page_ready_timeout: float = 10.0
     search_timeout: float = 12.0
     parse_retries: int = 4
     capture_retries: int = 3

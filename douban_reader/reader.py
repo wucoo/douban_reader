@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
 NAV_BUTTON_TIMEOUT = 5.0
 #: 等待阅读器就绪的轮询间隔（秒）
 STATE_POLL_INTERVAL = 0.4
+#: 读页码的轮询间隔（秒）——"等页码稳定"用得上
+PAGE_POLL_INTERVAL = 0.2
+#: 一次翻页最多点几次按钮（页码回跳/点击被吞时重点，但不无限重试）
+TURN_ATTEMPTS = 3
 
 #: 阅读器就绪探针：一次性返回所有判据，避免多次往返
 _READER_STATE_JS = r"""
@@ -232,25 +236,103 @@ class Reader:
 
     # ------------------------------------------------------------ 翻页
 
-    def next_page(self, *, timeout: float | None = None) -> int:
-        """后翻一页，返回新页码。"""
-        return self._turn(selectors.NEXT_BUTTONS, "后翻", timeout=timeout)
+    def wait_for_page(self, target: int, *, timeout: float | None = None) -> bool:
+        """等待阅读器**真正停在第 target 页**（页码连续稳定），返回是否等到。
 
-    def prev_page(self, *, timeout: float | None = None) -> int:
-        """前翻一页，返回新页码。"""
-        return self._turn(selectors.PREV_BUTTONS, "前翻", timeout=timeout)
+        为什么需要它：翻页时阅读器的 ``data-pagination`` 会抖动甚至回跳
+        （实测日志里出现过"实得 p17、期望 p19"），只要看到"页码变了"就认为翻页成功，
+        就会正好在回跳的那一瞬间去读内容，得到上一页。所以这里要求页码
+        **连续两次读到同一个目标值**才算稳定。
+        """
+        target = int(target)
+        timeout = self.settings.page_ready_timeout if timeout is None else timeout
+        deadline = time.monotonic() + timeout
+        stable_needed = 2  # 连续读到几次才算稳定
+        stable = 0
+        last: int | None = None
+        while time.monotonic() < deadline:
+            try:
+                last = self.current_page()
+            except NavigationError:
+                stable = 0
+                time.sleep(PAGE_POLL_INTERVAL)
+                continue
+            stable = stable + 1 if last == target else 0
+            if stable >= stable_needed:
+                return True
+            time.sleep(PAGE_POLL_INTERVAL)
+        logger.debug("等待 p%d 稳定超时（当前 p%s）", target, last)
+        return False
 
-    def _turn(self, buttons: tuple[str, ...], label: str, *, timeout: float | None = None) -> int:
-        timeout = self.settings.nav_timeout if timeout is None else timeout
-        before = self.current_page()
-        button = self.browser.find_visible(buttons, timeout=NAV_BUTTON_TIMEOUT)
-        if button is None:
-            raise NavigationError(f"找不到{label}按钮（尝试过 {list(buttons)}）")
-        self.browser.click_element_js(button)
-        self.browser.wait_for_attribute(
-            selectors.CURRENT_PAGE, selectors.PAGE_ATTR, before, timeout=timeout
+    def next_page(self, *, expect: int | None = None, timeout: float | None = None) -> int:
+        """后翻一页，返回新页码。
+
+        Args:
+            expect: 期望到达的页码。给了就会**确认真的翻到那一页**，
+                页码回跳/点击被吞时自动重点，最多 :data:`TURN_ATTEMPTS` 次。
+        """
+        return self._turn(selectors.NEXT_BUTTONS, "后翻", expect=expect, timeout=timeout)
+
+    def prev_page(self, *, expect: int | None = None, timeout: float | None = None) -> int:
+        """前翻一页，返回新页码（``expect`` 语义同 :meth:`next_page`）。"""
+        return self._turn(selectors.PREV_BUTTONS, "前翻", expect=expect, timeout=timeout)
+
+    def _turn(
+        self,
+        buttons: tuple[str, ...],
+        label: str,
+        *,
+        expect: int | None = None,
+        timeout: float | None = None,
+    ) -> int:
+        """点一次翻页按钮，并确认页码真的动到位。
+
+        站点偶尔会吞掉一次点击、或让页码先跳到目标再回跳，所以这里：
+        点击 → 等到 ``expect``（或"页码变了"）→ 没到就再点一次，最多 :data:`TURN_ATTEMPTS` 次。
+        绝不无限重试：连点多次仍不动说明页面/风控有问题，直接报错让上层决策。
+        """
+        timeout = self.settings.turn_timeout if timeout is None else timeout
+        for attempt in range(1, TURN_ATTEMPTS + 1):
+            before = self.current_page()
+            if expect is not None and before == expect:
+                return before
+
+            button = self.browser.find_visible(buttons, timeout=NAV_BUTTON_TIMEOUT)
+            if button is None:
+                raise NavigationError(f"找不到{label}按钮（尝试过 {list(buttons)}）")
+            self.browser.click_element_js(button)
+
+            if expect is not None:
+                landed = self.wait_for_page(expect, timeout=timeout)
+            else:
+                landed = self._wait_for_change(before, timeout=timeout)
+            if landed and (expect is None or self.current_page() == expect):
+                return self.current_page()
+
+            logger.debug(
+                "%s 第 %d/%d 次点击未到位（期望 p%s，当前 p%s）",
+                label,
+                attempt,
+                TURN_ATTEMPTS,
+                expect,
+                self.current_page(),
+            )
+            time.sleep(PAGE_POLL_INTERVAL)
+
+        raise NavigationError(
+            f"{label}连续 {TURN_ATTEMPTS} 次点击都没能到位"
+            f"（期望 p{expect}，当前 p{self.current_page()}）"
         )
-        return self.current_page()
+
+    def _wait_for_change(self, old_value: int, *, timeout: float) -> bool:
+        """等到页码不再是 ``old_value``；超时返回 False（不抛异常）。"""
+        try:
+            self.browser.wait_for_attribute(
+                selectors.CURRENT_PAGE, selectors.PAGE_ATTR, old_value, timeout=timeout
+            )
+        except Exception:  # noqa: BLE001 - 超时属于正常分支，交给调用方决定
+            return False
+        return True
 
     def goto_page(
         self,
@@ -262,6 +344,9 @@ class Reader:
         settle: float | None = None,
     ) -> int:
         """逐页翻到目标页。
+
+        每一步都带"期望页码"去翻（见 :meth:`_turn`），翻完立刻重读当前页，
+        所以页码抖动/点击被吞时能自我修正，而不是一路错下去。
 
         Args:
             on_page: 每翻一页**之前**回调当前页码（用于顺手缓存沿途页）。
@@ -282,9 +367,9 @@ class Reader:
                 except Exception as exc:  # noqa: BLE001 - 回调出错不阻断导航
                     logger.warning("on_page(p%d) 失败：%s", current, exc)
             if current < target:
-                self.next_page()
+                self.next_page(expect=current + 1)
             else:
-                self.prev_page()
+                self.prev_page(expect=current - 1)
             self.browser.sleep_random(sleep_range)
 
         raise NavigationError(f"翻页 {max_turns} 次仍未到达第 {target} 页")

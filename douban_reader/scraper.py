@@ -371,28 +371,8 @@ class Scraper:
                         break
                     continue
                 consecutive = 0
-
-                # 顺着"连续待抓"的页往前走；遇到已抓过的页或范围边界就停，
-                # 这样不会出现"走过一遍再空翻回来"的重复加载
-                while True:
-                    nxt = target + 1
-                    if nxt > high or not is_pending(nxt):
-                        break
-                    if self._should_stop():
-                        stopped = True
-                        logger.info("[停止] 收到停止请求：停在 p%d，未完成的页留待下次续抓", target)
-                        break
-                    try:
-                        reader.next_page()
-                    except CookieExpiredError:
-                        raise
-                    except ReaderError as exc:
-                        logger.warning("翻页失败（p%d -> p%d）：%s，重新规划走位", target, nxt, exc)
-                        break
-                    target = nxt
-                    if self._capture(reader, parser, store, pages, http, target, intentional=True):
-                        fetched += 1
-                    reader.browser.sleep_random()
+                # 已经抓到的页不再停留：下一轮 next_target() 会直接给出下一个待抓页，
+                # 相邻时就是一次翻页、有间隔时走搜索跳页 —— 因此这里不需要"再往前走一遍"
         except Exception as exc:  # noqa: BLE001 - 记录后仍要聚合已完成的部分
             error = exc
             if isinstance(exc, ReaderError):
@@ -425,6 +405,18 @@ class Scraper:
         """解析当前页并落盘；校验页码，失败重试。"""
         settings = self.settings
         for attempt in range(1, settings.capture_retries + 1):
+            if intentional and not reader.wait_for_page(
+                page_no, timeout=settings.page_ready_timeout
+            ):
+                # 页码还在抖动/没翻到位：先等它稳定到目标页，别急着解析（否则会读到上一页）
+                logger.warning(
+                    "p%d 尚未稳定（当前 p%s），第 %d/%d 次重试",
+                    page_no,
+                    self._current_page_safe(reader),
+                    attempt,
+                    settings.capture_retries,
+                )
+                continue
             try:
                 page = parser.parse_current_page(retries=settings.parse_retries)
             except Exception as exc:  # noqa: BLE001 - 解析失败按重试处理
@@ -554,6 +546,14 @@ class Scraper:
         name = settings.book_dir().name
         suffix = f"_{settings.ebook_id}"
         return name[: -len(suffix)] if name.endswith(suffix) else name
+
+    @staticmethod
+    def _current_page_safe(reader: Reader) -> str:
+        """读当前页码（失败就返回 "?"），只用于日志。"""
+        try:
+            return str(reader.current_page())
+        except Exception:  # noqa: BLE001
+            return "?"
 
     @staticmethod
     def _is_intentional(pages: dict[int, Page], page_no: int) -> bool:
