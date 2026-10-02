@@ -215,6 +215,10 @@ book/<书名>_<ebook_id>/
 * **选择器只写在 `selectors.py`**，JS 通过参数接收，不要在 `parse_page.js` 里新增选择器字面量
   （`tests/test_parsing.py` 会检查）。
 * **`parse_page.js` 必须以顶层 `return` 结束**，不要包 IIFE（`tests/test_assets.py` 会检查）。
+* **`.cmd` / `.bat` 必须 CRLF + UTF-8 无 BOM**：cmd.exe 按行解析批处理，只有 LF 时它会把行拆错，
+  表现为"把半个词当命令执行 + 卡住不返回"（`run.cmd` 真实踩过一次）。
+  仓库的 `.gitattributes` 保证 checkout 出来就是 CRLF，但用编辑器改完要确认没被转成 LF
+  —— `tests/test_assets.py` 会检查。`run.cmd` 里的 `chcp 65001` 必须放在中文注释之前。
 * 新增配置项：在 `Settings` 里加字段 → 写进 `config.toml` → 需要时在 `cli.py` 暴露参数。
   未知键会报错，所以三处必须同步。
 * 落盘一律走 `storage.atomic_write_text/json`（临时文件 + `os.replace`），不要直接 `open(..., "w")`。
@@ -243,6 +247,8 @@ book/<书名>_<ebook_id>/
 * **注入脚本不能用 IIFE 包裹。** `(function(){...})(...)` 的返回值会被 chromedriver 丢弃，
   Python 侧只会拿到 `None`（表现为"解析当前页失败：返回类型异常 NoneType"）。
   必须顶层 `return`。
+* **批处理不能用 LF 换行。** cmd.exe 会把 LF 版 `.cmd` 的行拆错，
+  出现"碎片命令乱飞 + 进程假死"，且报错信息与真实原因毫无关系，极难排查。
 
 ---
 

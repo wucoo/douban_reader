@@ -1,4 +1,4 @@
-"""随包第三方资源与 JS 脚本的完整性检查（纯文本，无需浏览器）。"""
+"""随包第三方资源、JS 脚本与 Windows 启动脚本的完整性检查（纯文本，无需浏览器）。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 from douban_reader.parsing import DEFAULT_JS_PATH
-from douban_reader.settings import DEFAULT_STEALTH_JS
+from douban_reader.settings import DEFAULT_STEALTH_JS, PROJECT_ROOT
 
 JS_DIR = Path(__file__).resolve().parent.parent / "douban_reader" / "js"
 STEALTH_SHA_FILE = DEFAULT_STEALTH_JS.with_name(DEFAULT_STEALTH_JS.name + ".sha256")
@@ -52,3 +52,20 @@ def test_parse_script_ends_with_top_level_return() -> None:
 def test_parse_script_takes_config_from_arguments() -> None:
     script = DEFAULT_JS_PATH.read_text(encoding="utf-8")
     assert "arguments[0]" in script
+
+
+def test_windows_scripts_use_crlf_without_bom() -> None:
+    """批处理脚本必须 CRLF + UTF-8 无 BOM。
+
+    cmd.exe 是按行解析 .cmd 的：只有 LF 换行时它会把行拆错，表现为
+    "把半个词当命令执行 + 卡住不返回"（本项目真实踩过，run.cmd 曾因此假死）；
+    带 UTF-8 BOM 则会让首行变成 ``锘?echo off`` 之类的未知命令。
+    """
+    scripts = sorted(PROJECT_ROOT.glob("*.cmd")) + sorted(PROJECT_ROOT.glob("*.bat"))
+    assert scripts, "项目根目录应至少有一个 Windows 启动脚本"
+
+    for script in scripts:
+        raw = script.read_bytes()
+        assert not raw.startswith(b"\xef\xbb\xbf"), f"{script.name} 不应带 UTF-8 BOM"
+        assert raw.count(b"\n") > 0, f"{script.name} 似乎是空文件"
+        assert raw.count(b"\n") == raw.count(b"\r\n"), f"{script.name} 必须全部使用 CRLF 换行"
