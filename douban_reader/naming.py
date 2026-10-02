@@ -52,7 +52,7 @@ def image_file_name(page: int, seq: int, ext: str) -> str:
 
 
 def chapter_stem(index: int, title: str, start_page: int, end_page: int) -> str:
-    """章节文件名主干（不含扩展名）：``003_小偶像_p3-6``。"""
+    """章节文件名主干（不含扩展名）：``003_示例章节_p3-6``。"""
     return f"{index:03d}_{safe_name(title)}_p{start_page}-{end_page}"
 
 

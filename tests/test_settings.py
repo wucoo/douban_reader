@@ -126,7 +126,7 @@ def test_stealth_script_defaults_into_package() -> None:
 
 def test_book_dir_uses_title_and_id(tmp_path: Path) -> None:
     settings = Settings(ebook_id="450696", book_root=str(tmp_path / "book"))
-    assert settings.book_dir("一觉睡到小时候").name == "一觉睡到小时候_450696"
+    assert settings.book_dir("示例书名").name == "示例书名_450696"
 
 
 def test_book_dir_prefers_existing_directory(tmp_path: Path) -> None:

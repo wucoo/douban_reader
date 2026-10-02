@@ -87,8 +87,8 @@ def test_stealth_patch_is_effective(browser: Browser) -> None:
 def test_reads_page_number_title_and_total(reader: Reader) -> None:
     assert reader.current_page() == 7
     assert reader.total_pages() == 200
-    assert reader.current_title() == "小偶像"
-    assert reader.get_book_title() == "小偶像"
+    assert reader.current_title() == "示例章节"
+    assert reader.get_book_title() == "示例章节"
 
 
 def test_turns_pages_in_both_directions(reader: Reader) -> None:
@@ -102,7 +102,7 @@ def test_parses_dom_into_page(browser: Browser) -> None:
     page = PageParser(browser).parse_current_page()
 
     assert page.page == 11
-    assert page.title == "小偶像"
+    assert page.title == "示例章节"
     assert [p.type for p in page.paragraphs] == [
         "title",
         "text",
@@ -111,10 +111,10 @@ def test_parses_dom_into_page(browser: Browser) -> None:
         "text",
         "title",
     ]
-    assert page.paragraphs[0].text == "小偶像"
+    assert page.paragraphs[0].text == "示例章节"
     assert page.paragraphs[1].text == "第一段文字。"
     assert page.paragraphs[2].src == "https://example.com/figure.jpg"
-    assert page.paragraphs[2].legend == "图注：记忆里总有些光亮到难忘。"
+    assert page.paragraphs[2].legend == "图注：这是示例图注。"
     # 行内标签的文字要一起取到；连续空白要折叠；空段落要被跳过
     assert page.paragraphs[3].text == "第二段文字强调结尾"
     assert page.paragraphs[4].text == "多余 空白 行"

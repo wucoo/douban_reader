@@ -78,9 +78,9 @@ def test_non_intentional_pages_are_ignored() -> None:
 def test_title_paragraph_matching_chapter_title_is_skipped() -> None:
     page = Page(
         page=1,
-        title="小偶像",
+        title="示例章节",
         paragraphs=[
-            Paragraph(type="title", text="小偶像"),
+            Paragraph(type="title", text="示例章节"),
             Paragraph(type="title", text="第一节"),
             Paragraph(type="text", text="正文"),
         ],
@@ -225,21 +225,19 @@ def test_golden_legacy_mode_reproduces_old_output(
     """移植保真度：关闭去重后，章节文本必须与**重构前实现**的输出完全一致。
 
     比对基准是 ``tests/fixtures/legacy_output_manifest.json``：
-    它记录了旧实现对同一份 pages 快照产出的 53 个章节的 sha256 与行数
-    （只存指纹，不含书稿正文，因此可以随仓库长期保存）。
+    它按章节顺序记录了旧实现对同一份 pages 快照产出的 53 个章节的 sha256 与行数
+    （**只存指纹与计数，不含书名、章节名或正文**，因此可以随仓库长期保存）。
     """
-    chapters = build_chapters(snapshot_pages, dedupe_overlap=False)
-    produced = {stem: render_markdown(chapter) for chapter, stem in _pairs(chapters)}
-    expected = legacy_manifest["chapters"]
+    pairs = _pairs(build_chapters(snapshot_pages, dedupe_overlap=False))
+    expected: list[dict[str, Any]] = legacy_manifest["chapters"]
 
-    assert set(produced) == set(expected), "章节文件清单与旧实现不一致"
-    assert len(produced) == legacy_manifest["chapter_count"] == 53
+    assert len(pairs) == len(expected) == legacy_manifest["chapter_count"] == 53
 
-    for stem, text in produced.items():
-        normalized = _normalize(text)
-        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        assert digest == expected[stem]["txt_sha256"], f"{stem}: 文本与旧实现不一致"
-        assert len(_content_lines(text)) == expected[stem]["line_count"], stem
+    for (chapter, stem), entry in zip(pairs, expected, strict=True):
+        text = render_markdown(chapter)
+        digest = hashlib.sha256(_normalize(text).encode("utf-8")).hexdigest()
+        assert digest == entry["txt_sha256"], f"{stem}: 文本与旧实现不一致"
+        assert len(_content_lines(text)) == entry["line_count"], stem
 
 
 @pytest.mark.golden
@@ -254,15 +252,16 @@ def test_golden_dedupe_removes_exactly_page_overlaps(
         "去重不应改变章节划分，只应去掉重复段"
     )
 
-    expected = legacy_manifest["chapters"]
-    without_map = {stem: chapter for chapter, stem in without_dedupe}
+    expected: list[dict[str, Any]] = legacy_manifest["chapters"]
     removed = 0
-    for chapter, stem in with_dedupe:
-        legacy_lines = _content_lines(render_markdown(without_map[stem]))
+    for (chapter, stem), (legacy_chapter, _), entry in zip(
+        with_dedupe, without_dedupe, expected, strict=True
+    ):
+        legacy_lines = _content_lines(render_markdown(legacy_chapter))
         new_lines = _content_lines(render_markdown(chapter))
         assert new_lines == _collapse_repeats(legacy_lines), stem
         # 与旧实现的指纹交叉核对：未去重行数应等于旧版行数
-        assert len(legacy_lines) == expected[stem]["line_count"], stem
+        assert len(legacy_lines) == entry["line_count"], stem
         removed += len(legacy_lines) - len(new_lines)
 
     assert removed == legacy_manifest["total_removed_duplicates"] == 88
@@ -290,6 +289,7 @@ def test_golden_index_matches_chapters_on_disk(
     assert index["covered_intentional"] == sorted(p.page for p in snapshot_pages)
     assert "\\" not in index["root_dir"], "JSON 内路径应统一用正斜杠"
 
-    for entry in index["chapters"]:
-        legacy_blocks = legacy_manifest["chapters"][entry["file"]]["block_count"]
-        assert legacy_blocks - entry["block_count"] >= 0, entry["file"]
+    expected: list[dict[str, Any]] = legacy_manifest["chapters"]
+    assert len(index["chapters"]) == len(expected)
+    for entry, legacy in zip(index["chapters"], expected, strict=True):
+        assert legacy["block_count"] - entry["block_count"] >= 0, entry["file"]

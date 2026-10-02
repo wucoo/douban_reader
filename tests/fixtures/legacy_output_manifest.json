@@ -1,276 +1,277 @@
 {
   "chapter_count": 53,
-  "chapters": {
-    "002_篇一·小清新_p2-2": {
+  "chapters": [
+    {
       "block_count": 4,
       "line_count": 4,
       "txt_sha256": "2519f13f7a89600b40f3540116ae1ead659c3624e5b0b2f7d4789c9a5681fb3c"
     },
-    "003_小偶像_p3-6": {
+    {
       "block_count": 27,
       "line_count": 27,
       "txt_sha256": "5e0572b254c20edc5a88656315f5a59cc62a37860e65fea09fbb260905e5b206"
     },
-    "004_小初吻_p7-10": {
+    {
       "block_count": 15,
       "line_count": 15,
       "txt_sha256": "26dea8e3d69dd0b18863af323c0302ba8edd31ebf68830de38f4fd0e3eaf71f3"
     },
-    "005_小抢劫_p11-14": {
+    {
       "block_count": 36,
       "line_count": 36,
       "txt_sha256": "2e032aec46f429a62b091657d73e1bf372364e8cbb84ef0a12f1d783092d1698"
     },
-    "006_小成长_p15-18": {
+    {
       "block_count": 30,
       "line_count": 30,
       "txt_sha256": "5e4b1158aa37c728d9ce3a61eadb02092093f24632966d0cc6844bef4c782857"
     },
-    "007_小谣言_p19-22": {
+    {
       "block_count": 33,
       "line_count": 33,
       "txt_sha256": "71decc1b31bb7770e2a818d59de57e5432d022402ff50d46493e64e9fea6d243"
     },
-    "008_小醉酒_p23-26": {
+    {
       "block_count": 30,
       "line_count": 30,
       "txt_sha256": "c767ac70f39a81d46b79163aa7fc7db9194c7b6ff024a412fdc9e674f1d7766f"
     },
-    "009_小搜索_p27-30": {
+    {
       "block_count": 27,
       "line_count": 27,
       "txt_sha256": "ad9386ec6f74a788cc032b0959ac40807afdccc7c16bad5807b62445a31d3122"
     },
-    "010_小问题_p31-34": {
+    {
       "block_count": 32,
       "line_count": 32,
       "txt_sha256": "1bed689bd3d76c43180eeee5506cd0196a7ade271e06bc004ea8e279324d1781"
     },
-    "011_小恐怖_p35-38": {
+    {
       "block_count": 21,
       "line_count": 21,
       "txt_sha256": "13a434b2f70ccba82963eff1fbc7f9d12f54ac06d1ee3f71bbac5f6022ac1d9a"
     },
-    "012_小事情_p39-42": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "494bd4db22b4c298e54bbf13ee346a159e3e2f476ef4a30f35dc737656b3f6b8"
     },
-    "013_小人书_p43-46": {
+    {
       "block_count": 34,
       "line_count": 34,
       "txt_sha256": "bda2cddfe36c32a3bb4cd6fbfa4c25d4249fc0ad014dc9ef81fbddf9c1c897f1"
     },
-    "014_小挑食_p47-50": {
+    {
       "block_count": 23,
       "line_count": 23,
       "txt_sha256": "a3e855a729ba714c4a28cb64db2699a291314775f3a74b9dd37d31bcb8593dc4"
     },
-    "015_篇二·小忧伤_p51-51": {
+    {
       "block_count": 4,
       "line_count": 4,
       "txt_sha256": "8cdc7d66ac8e4e9c96e29836191adf34606c0016c033a6f8e75b4b90d7c72f9d"
     },
-    "016_小失恋_p52-55": {
+    {
       "block_count": 50,
       "line_count": 50,
       "txt_sha256": "160ce1eac3df0718a987b4caf082dd9fcfc0f2d1fff9d416cca1b39e19de672a"
     },
-    "017_小树猴_p56-59": {
+    {
       "block_count": 28,
       "line_count": 28,
       "txt_sha256": "45e49492b85e545fcfe45066bb383b939f408f534beac00f4ed7c93eb8383e70"
     },
-    "018_小无猜_p60-61": {
+    {
       "block_count": 19,
       "line_count": 19,
       "txt_sha256": "b5942a8ef9fd4e383a8ee2002b96bdc15f068e9c44892bc2c67a7aae0004e8b0"
     },
-    "019_小苦头_p62-64": {
+    {
       "block_count": 18,
       "line_count": 18,
       "txt_sha256": "848f3950bd68e1db99f8f438438ef78cb31bd6061fa3d05f2f174310f965fa3b"
     },
-    "020_小邮差_p65-68": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "3c1b809b280a6ae5d69efd7f3d2525a25e91d1e2403884afc292d9865abe8816"
     },
-    "021_小记事_p69-74": {
+    {
       "block_count": 37,
       "line_count": 37,
       "txt_sha256": "2a4f6c33bcc2302352ccdfba18e75189e2b7c4a6b6d20dd3ec994c14107f8d69"
     },
-    "022_小亲戚_p75-78": {
+    {
       "block_count": 35,
       "line_count": 35,
       "txt_sha256": "8968b808a20324b9fbecf9185a7ce80e7ecd91f70eb09036e757fbd24bf0227d"
     },
-    "023_小姑娘_p79-82": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "8d09428a10fcc82e899876aa73c94ac2af994caf42e61acdf0d0dcb8c65629d4"
     },
-    "024_小神童_p83-86": {
+    {
       "block_count": 35,
       "line_count": 35,
       "txt_sha256": "a5280ff07c9e6c4aa8275f88b3428fc913d705c07c1eb43a67bf506c30b1e63a"
     },
-    "025_小奥数_p87-90": {
+    {
       "block_count": 28,
       "line_count": 28,
       "txt_sha256": "69f66478277c3a802183ee8d60a24ce14f0e228d7feb6e519668768d6f33fe98"
     },
-    "026_小失落_p91-94": {
+    {
       "block_count": 25,
       "line_count": 25,
       "txt_sha256": "ff1f92cecd4ae18c2231fcd89c58f7b2d16ac867dc372baf576d5c85ee93a677"
     },
-    "027_小悲伤_p95-98": {
+    {
       "block_count": 30,
       "line_count": 30,
       "txt_sha256": "9988e895cd228f324cc2f0397d65fd78eb78f442fc456900d3c1eaae37a85345"
     },
-    "028_篇三·小明媚_p99-99": {
+    {
       "block_count": 4,
       "line_count": 4,
       "txt_sha256": "0a218eb370a5ae4868b456c57c3fc65d5e2995175a82d54ff3f97a69cba34337"
     },
-    "029_小馋嘴_p100-103": {
+    {
       "block_count": 40,
       "line_count": 40,
       "txt_sha256": "0b07472414cf2c99d8b65cc33384c18b6d0645adfc4e1c5d2481af19f1e03d68"
     },
-    "030_小计算_p104-107": {
+    {
       "block_count": 27,
       "line_count": 27,
       "txt_sha256": "f4b3009ad2a38e5378833376ea4ea01e32d726e407549bc25ee9b69210f49828"
     },
-    "031_小怪癖_p108-111": {
+    {
       "block_count": 25,
       "line_count": 25,
       "txt_sha256": "d9f1f7fd137307bbd95776ec555200131a8efe9627fe0765ead8d3fbf4831927"
     },
-    "032_小过年_p112-115": {
+    {
       "block_count": 27,
       "line_count": 27,
       "txt_sha256": "6414e4be77c4a8474baee33dd3d0fc97e5144633188abd7ded65de0bc5aa0b36"
     },
-    "033_小恶心_p116-119": {
+    {
       "block_count": 43,
       "line_count": 43,
       "txt_sha256": "7a5ef08ef6768617089e22db4b0ab2a7531fcebb8e910a6b96f89cd7140bc251"
     },
-    "034_小春晚_p120-123": {
+    {
       "block_count": 32,
       "line_count": 32,
       "txt_sha256": "707cdac4107060d8acc526cae6045507ca02031da0d9f2da9babfe7e59f48e2b"
     },
-    "035_小制作_p124-127": {
+    {
       "block_count": 23,
       "line_count": 23,
       "txt_sha256": "a13d94b9892fb68d16e4c2d55706c6ba57ec030b8a03138a4064bcab14c05208"
     },
-    "036_小武器_p128-131": {
+    {
       "block_count": 27,
       "line_count": 27,
       "txt_sha256": "c5e99969d4b557a7b3e06fffb971f74aa27aa301bfb7c48b33f55596065439d3"
     },
-    "037_小宠物_p132-135": {
+    {
       "block_count": 25,
       "line_count": 25,
       "txt_sha256": "79044fc568cadde1f20846069c917057adabdfb4986bbcb25a1049435bdf7c3a"
     },
-    "038_小胜利_p136-139": {
+    {
       "block_count": 22,
       "line_count": 22,
       "txt_sha256": "3e3693739f4a2e39ae4e4db7b7490657422b33337f8da3b481bb868fb6aebec2"
     },
-    "039_小偏科_p140-143": {
+    {
       "block_count": 25,
       "line_count": 25,
       "txt_sha256": "1399f22ddc8b1c26c5471db5460df58c177621a6a06d1e441569e74d3e4ce389"
     },
-    "040_小西游_p144-147": {
+    {
       "block_count": 36,
       "line_count": 36,
       "txt_sha256": "fc5ad1f9bd3615d8257a3029796dfe370ea6a4fdcde9aa91b27aa47af4fa2210"
     },
-    "041_篇四·小确幸_p148-148": {
+    {
       "block_count": 3,
       "line_count": 3,
       "txt_sha256": "c91883631198fac15e120164b88ef83b366c10a7be2603d251fb0f4136179a26"
     },
-    "042_小伴郎_p149-152": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "b31d7a0672d7c3165c9b24e9f1a4460c7dd7b85f94e530da501743b7163568bb"
     },
-    "043_小流浪_p153-156": {
+    {
       "block_count": 31,
       "line_count": 31,
       "txt_sha256": "3828e45a8599ccf87fe51ab803ecd2b60c2de10e2671e3a1a537895f6b51b071"
     },
-    "044_小动画_p157-160": {
+    {
       "block_count": 23,
       "line_count": 23,
       "txt_sha256": "367805e6108a033da709ca03994a03331d2fab79f551eb2921d0739453cca0fb"
     },
-    "045_小委屈_p161-164": {
+    {
       "block_count": 19,
       "line_count": 19,
       "txt_sha256": "73be1d4062842f76b967ff68c917c7110629d74fafbea098c2041935944a75ef"
     },
-    "046_小启蒙_p165-168": {
+    {
       "block_count": 22,
       "line_count": 22,
       "txt_sha256": "22dc58cd781d95b96149a9101d3b5ab1e11bd90c36e964169b10dc7bdf33ae9b"
     },
-    "047_小滋味_p169-172": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "51aa8a9d92bf18038c1cba5009b623109ef089377edaec47ba2ae238350eaa8c"
     },
-    "048_小对手_p173-176": {
+    {
       "block_count": 21,
       "line_count": 21,
       "txt_sha256": "50b1b2b17d37b478b6a38693c011ef6167b69a8af78b9bc56ad1e1bde756faf7"
     },
-    "049_小技术_p177-180": {
+    {
       "block_count": 33,
       "line_count": 33,
       "txt_sha256": "10b57c4a9f8f239293ef65087911a2b70d38e61b14fd79e663dfeda6cfd2f9f4"
     },
-    "050_小电影_p181-184": {
+    {
       "block_count": 29,
       "line_count": 29,
       "txt_sha256": "7fd6090c1d6768a48efb0b86dfc0cd4fe2f34a9ab8c4eae3c9817e135aa39250"
     },
-    "051_小老师_p185-188": {
+    {
       "block_count": 28,
       "line_count": 28,
       "txt_sha256": "4a7fc1a5254b6b1d913371ad4aed10ede6ab00e51e842d6ebbb8b35fc2272fee"
     },
-    "052_小如厕_p189-192": {
+    {
       "block_count": 26,
       "line_count": 26,
       "txt_sha256": "ce1e8950fbce03e737623a13e993536470e2cdf268c8e6ccb31dca1da201065a"
     },
-    "053_小堕落_p193-196": {
+    {
       "block_count": 31,
       "line_count": 31,
       "txt_sha256": "9c25e3cd3e72435d0a6fad7545c595c6d2a59801d465bd2ce04f816352c86400"
     },
-    "054_后记_p197-200": {
+    {
       "block_count": 25,
       "line_count": 25,
       "txt_sha256": "1ef00af87dca85fe45f0d5d34a0754bc93d75b135afc211e90ba180cec70affb"
     }
-  },
+  ],
+  "chapters_note": "按章节顺序排列；每一项对应一个章节文件",
   "dedupe_overlap": false,
   "ebook_id": "450696",
-  "note": "只记录 sha256 与计数，不包含书稿正文。txt 指纹按 LF 归一后计算（旧文件是 CRLF，新实现统一输出 LF）。",
-  "source": "重构前 douban_reader.py 对 book/一觉睡到小时候_450696/pages（200 页快照）的输出",
+  "note": "只记录 sha256 与计数，不含书名、章节名或任何正文。txt 指纹按 LF 归一后计算（旧文件是 CRLF，新实现统一输出 LF）。",
+  "source": "重构前 douban_reader.py 对某本电子书的本地 200 页快照的输出",
   "total_lines": 1413,
   "total_removed_duplicates": 88
 }

@@ -56,11 +56,11 @@ def test_atomic_write_text_uses_lf_and_leaves_no_temp(tmp_path: Path) -> None:
 
 def test_atomic_write_json_is_utf8_and_ends_with_newline(tmp_path: Path) -> None:
     target = tmp_path / "a.json"
-    atomic_write_json(target, {"标题": "小偶像"})
+    atomic_write_json(target, {"标题": "示例章节"})
     text = target.read_text(encoding="utf-8")
-    assert "小偶像" in text, "中文不应被转义"
+    assert "示例章节" in text, "中文不应被转义"
     assert text.endswith("\n")
-    assert json.loads(text) == {"标题": "小偶像"}
+    assert json.loads(text) == {"标题": "示例章节"}
 
 
 # --------------------------------------------------------------------- 页缓存
@@ -68,7 +68,7 @@ def test_atomic_write_json_is_utf8_and_ends_with_newline(tmp_path: Path) -> None
 
 def test_save_and_load_page_roundtrip(book_root: Path) -> None:
     store = BookStore(book_root)
-    page = make_page(3, title="小偶像")
+    page = make_page(3, title="示例章节")
     assert store.save_page(page, intentional=True) is True
 
     loaded = store.load_pages()
@@ -114,8 +114,8 @@ def test_load_pages_skips_broken_files(book_root: Path) -> None:
 def test_clear_derived_only_removes_managed_files(book_root: Path) -> None:
     store = BookStore(book_root)
     store.ensure_dirs()
-    managed_txt = store.chapter_dir / "003_小偶像_p3-6.txt"
-    managed_json = store.json_dir / "003_小偶像_p3-6.json"
+    managed_txt = store.chapter_dir / "003_示例章节_p3-6.txt"
+    managed_json = store.json_dir / "003_示例章节_p3-6.json"
     index = store.json_dir / naming.INDEX_FILE
     for path in (managed_txt, managed_json, index):
         path.write_text("x", encoding="utf-8")

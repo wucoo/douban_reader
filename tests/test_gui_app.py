@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import os
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,13 +22,41 @@ from douban_reader.settings import Settings
 pytestmark = pytest.mark.gui
 
 
+def _ensure_tcl_library() -> None:
+    """显式指定 Tcl/Tk 库路径。
+
+    某些环境下 Tcl 的库搜索会**偶发**失败（报 "Can't find a usable init.tcl"，
+    但文件其实存在），于是界面测试会随机被跳过。应用本身不受影响
+    （GUI 在同样环境下能正常启动），这里只是让测试结果稳定、可复现。
+    """
+    if os.environ.get("TCL_LIBRARY"):
+        return
+    base = Path(sys.base_prefix) / "tcl"
+    for env_name, folder, marker in (
+        ("TCL_LIBRARY", "tcl8.6", "init.tcl"),
+        ("TK_LIBRARY", "tk8.6", "tk.tcl"),
+    ):
+        candidate = base / folder
+        if (candidate / marker).is_file():
+            os.environ[env_name] = str(candidate)
+
+
 @pytest.fixture
 def root() -> Any:
     tk = pytest.importorskip("tkinter", reason="没有 tkinter")
-    try:
-        window = tk.Tk()
-    except tk.TclError as exc:  # pragma: no cover - 无图形环境（如无 X11 的服务器）
-        pytest.skip(f"没有可用的图形环境：{exc}")
+    _ensure_tcl_library()
+    window = None
+    last_error: Exception | None = None
+    # Tcl 首次初始化偶发失败（冷启动/杀软扫描 DLL），重试一次即可稳定
+    for _ in range(2):
+        try:
+            window = tk.Tk()
+            break
+        except tk.TclError as exc:
+            last_error = exc
+            time.sleep(0.3)
+    if window is None:  # pragma: no cover - 无图形环境（如无 X11 的服务器）
+        pytest.skip(f"没有可用的图形环境：{last_error}")
     window.withdraw()  # 别真的弹到用户屏幕上
     yield window
     window.destroy()
@@ -99,7 +130,7 @@ def test_handle_done_success_reports_summary(app: GuiApp) -> None:
     result = ScrapeResult(
         root_dir=Path(app.base_settings.book_dir()),
         ebook_id="1465780",
-        book_title="明朝那些事儿·第1部",
+        book_title="示例书名",
         pages_fetched=7,
         cached_pages=7,
         intentional_pages=7,

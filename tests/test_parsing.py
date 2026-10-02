@@ -32,7 +32,7 @@ class FakeBrowser:
 
 GOOD_RAW = {
     "page": 3,
-    "title": "小偶像",
+    "title": "示例章节",
     "paragraphs": [
         {"type": "text", "text": "正文"},
         {"type": "image", "src": "https://example.com/a.jpg", "legend": "图注"},
@@ -46,7 +46,7 @@ GOOD_RAW = {
 def test_validate_raw_page_ok() -> None:
     page = validate_raw_page(GOOD_RAW)
     assert page.page == 3
-    assert page.title == "小偶像"
+    assert page.title == "示例章节"
     assert [p.type for p in page.paragraphs] == ["text", "image"]
     assert page.intentional is False
 
