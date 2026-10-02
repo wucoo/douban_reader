@@ -182,7 +182,7 @@ def _print_result(result: ScrapeResult) -> None:
             print("  重跑同一命令即可继续补抓未完成的页。", file=sys.stderr)
         elif code is ExitCode.NAVIGATION:
             print(
-                "  导航中断：可加 --headless false 观察页面，或用 --no-search-jump 关闭搜索跳页。",
+                "  导航中断：可加 --no-headless 观察页面，或用 --no-search-jump 关闭搜索跳页。",
                 file=sys.stderr,
             )
     elif result.incomplete_pages:

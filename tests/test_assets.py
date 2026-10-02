@@ -55,11 +55,14 @@ def test_parse_script_takes_config_from_arguments() -> None:
 
 
 def test_windows_scripts_use_crlf_without_bom() -> None:
-    """批处理脚本必须 CRLF + UTF-8 无 BOM。
+    """批处理脚本必须 CRLF + 无 BOM，且不能用 ``chcp`` 切换代码页。
 
-    cmd.exe 是按行解析 .cmd 的：只有 LF 换行时它会把行拆错，表现为
-    "把半个词当命令执行 + 卡住不返回"（本项目真实踩过，run.cmd 曾因此假死）；
-    带 UTF-8 BOM 则会让首行变成 ``锘?echo off`` 之类的未知命令。
+    cmd.exe 是按**字节偏移**解析 .cmd 的，下列任一情况都会让偏移错位，
+    于是它把注释的碎片当命令执行（症状：先冒出两行"不是内部或外部命令"，再正常输出）：
+
+    * 只有 LF 换行（本项目真实踩过，run.cmd 因此假死）；
+    * 文件中间 ``chcp`` 换代码页（本项目第二次踩过，中文注释被拆成碎片执行）；
+    * UTF-8 BOM（首行会变成 ``锘?echo off`` 之类的未知命令）。
     """
     scripts = sorted(PROJECT_ROOT.glob("*.cmd")) + sorted(PROJECT_ROOT.glob("*.bat"))
     assert scripts, "项目根目录应至少有一个 Windows 启动脚本"
@@ -69,3 +72,30 @@ def test_windows_scripts_use_crlf_without_bom() -> None:
         assert not raw.startswith(b"\xef\xbb\xbf"), f"{script.name} 不应带 UTF-8 BOM"
         assert raw.count(b"\n") > 0, f"{script.name} 似乎是空文件"
         assert raw.count(b"\n") == raw.count(b"\r\n"), f"{script.name} 必须全部使用 CRLF 换行"
+
+        # 只查真正会被执行的语句，注释里提到 chcp 是允许的（那是给未来的人看的警告）
+        for line in raw.splitlines():
+            stripped = line.strip().lower()
+            if not stripped or stripped.startswith((b"rem", b"::", b"@")):
+                continue
+            assert not stripped.startswith(b"chcp"), (
+                f"{script.name} 不应执行 chcp：读到一半切换代码页会让 cmd 的字节偏移错位"
+            )
+
+
+def test_windows_scripts_are_ascii_only() -> None:
+    """批处理脚本必须是纯 ASCII：中文注释会让 cmd.exe 的按字节解析错位。
+
+    这条规则踩过两次坑，所以单独立一个测试：只要在 .cmd 里写中文，
+    轻则开头出现几行"不是内部或外部命令"，重则整段假死。
+    中文用法请写在 ``run.cmd --help``（由 argparse 渲染）和 README.md 里。
+    """
+    for script in sorted(PROJECT_ROOT.glob("*.cmd")) + sorted(PROJECT_ROOT.glob("*.bat")):
+        raw = script.read_bytes()
+        try:
+            raw.decode("ascii")
+        except UnicodeDecodeError as exc:
+            raise AssertionError(
+                f"{script.name} 含非 ASCII 字节（偏移 {exc.start}）：批处理里不要写中文，"
+                f"改用英文注释，中文用法放 --help 与 README.md"
+            ) from exc

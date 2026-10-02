@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ import pytest
 from douban_reader import cli
 from douban_reader.errors import ExitCode
 from douban_reader.scraper import Scraper
-from douban_reader.settings import Settings, load_toml
+from douban_reader.settings import PROJECT_ROOT, Settings, load_toml
 
 
 def write_config(tmp_path: Path, body: str) -> Path:
@@ -128,3 +129,21 @@ def test_shipped_config_file_is_valid() -> None:
     settings = settings_from_mapping(load_toml(DEFAULT_CONFIG_FILE))
     assert settings.ebook_id == "450696"
     assert settings.stealth_js_path.is_file()
+
+
+def test_docs_do_not_pass_values_to_boolean_flags() -> None:
+    """布尔开关不接受值：``--headless false`` 会被 argparse 当成未知位置参数而报错。
+
+    这类写法真的出现在过提示语与 README 里，所以用测试钉住：
+    要关掉某个开关就写 ``--no-headless``。
+    """
+    pattern = re.compile(r"(--[a-z][a-z-]*)\s+(true|false)\b", re.IGNORECASE)
+    targets = [PROJECT_ROOT / "README.md"]
+    targets += sorted((PROJECT_ROOT / "douban_reader").glob("*.py"))
+
+    offenders = [
+        f"{path.name}: {match.group(0)}"
+        for path in targets
+        for match in pattern.finditer(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders, "布尔开关不能用值传参，请改用 --no-xxx：" + "; ".join(offenders)

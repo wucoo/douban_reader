@@ -166,7 +166,7 @@ book/<书名>_<ebook_id>/
 | `1` | 未预期异常 | 看 `logs/` 里的堆栈 |
 | `2` | cookie 失效 | 重新登录并更新 `cookie.txt` |
 | `3` | 部分页未抓到 | 重跑同一命令即可续抓 |
-| `4` | 翻页/跳页中断 | `--headless false` 观察页面，或 `--no-search-jump` |
+| `4` | 翻页/跳页中断 | 用 `--no-headless`（默认可见）观察页面，或 `--no-search-jump` |
 | `5` | 配置/凭据问题 | 按报错提示修正配置或凭据文件 |
 
 ---
@@ -215,10 +215,13 @@ book/<书名>_<ebook_id>/
 * **选择器只写在 `selectors.py`**，JS 通过参数接收，不要在 `parse_page.js` 里新增选择器字面量
   （`tests/test_parsing.py` 会检查）。
 * **`parse_page.js` 必须以顶层 `return` 结束**，不要包 IIFE（`tests/test_assets.py` 会检查）。
-* **`.cmd` / `.bat` 必须 CRLF + UTF-8 无 BOM**：cmd.exe 按行解析批处理，只有 LF 时它会把行拆错，
-  表现为"把半个词当命令执行 + 卡住不返回"（`run.cmd` 真实踩过一次）。
-  仓库的 `.gitattributes` 保证 checkout 出来就是 CRLF，但用编辑器改完要确认没被转成 LF
-  —— `tests/test_assets.py` 会检查。`run.cmd` 里的 `chcp 65001` 必须放在中文注释之前。
+* **`.cmd` / `.bat` 必须"纯 ASCII + CRLF + 无 BOM + 不用 `chcp`"四件套**：
+  cmd.exe 是按**字节偏移**解析批处理的，多字节字符（中文注释）、LF 换行、
+  以及读到一半才 `chcp` 换代码页，都会让偏移错位，于是它把注释的碎片当命令执行
+  （症状：先冒出两行"不是内部或外部命令"，然后才正常输出），严重时直接假死。
+  中文用法放在 `run.cmd --help` 与本文档里，**不要写进 `.cmd`**。
+  仓库的 `.gitattributes` 保证 checkout 出来是 CRLF，但用编辑器改完要自行确认
+  —— `tests/test_assets.py` 会逐条检查这四项规则。
 * 新增配置项：在 `Settings` 里加字段 → 写进 `config.toml` → 需要时在 `cli.py` 暴露参数。
   未知键会报错，所以三处必须同步。
 * 落盘一律走 `storage.atomic_write_text/json`（临时文件 + `os.replace`），不要直接 `open(..., "w")`。
@@ -247,8 +250,10 @@ book/<书名>_<ebook_id>/
 * **注入脚本不能用 IIFE 包裹。** `(function(){...})(...)` 的返回值会被 chromedriver 丢弃，
   Python 侧只会拿到 `None`（表现为"解析当前页失败：返回类型异常 NoneType"）。
   必须顶层 `return`。
-* **批处理不能用 LF 换行。** cmd.exe 会把 LF 版 `.cmd` 的行拆错，
-  出现"碎片命令乱飞 + 进程假死"，且报错信息与真实原因毫无关系，极难排查。
+* **批处理脚本必须纯 ASCII + CRLF。** cmd.exe 按字节偏移解析 `.cmd`：LF 换行、
+  中文注释、读到一半 `chcp` 换代码页，三者任一都会让偏移错位 —— 轻则把注释碎片当命令执行
+  （"不是内部或外部命令"），重则整段假死不返回。报错信息与真实原因毫无关系，极难排查，
+  所以 `.cmd` 里只留英文注释，中文用法交给 `run.cmd --help`。
 
 ---
 
