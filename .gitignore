@@ -19,6 +19,11 @@ venv/
 cookie.txt
 config.local.toml
 
+# 复用已登录浏览器时产生的 Chrome 配置目录：
+# 里面存着登录态（等同凭据），一旦提交就等于泄露账号
+chrome-profile/
+profiles/
+
 # ============ 抓取产物 / 日志 ============
 # book/ 内含抓取到的正文与插图，仅本地留存，不入库
 book/
