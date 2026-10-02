@@ -46,7 +46,7 @@ cookie 失效时程序会明确报出来并以退出码 `2` 结束，不会用�
 ## 目录结构
 
 ```
-yjsdxsh/
+douban_reader/                 项目根目录（外层）与内层同名包是标准 flat layout
 ├─ pyproject.toml            依赖 + ruff/pytest 配置（唯一事实源）
 ├─ requirements*.txt         运行时 / 开发依赖
 ├─ config.toml               默认配置（可提交）
