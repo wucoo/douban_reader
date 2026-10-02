@@ -132,6 +132,21 @@ class Scraper:
         settings = self.settings
         root = settings.book_dir(settings.book_title)
         try:
+            # 先离线看一眼计划：范围内都抓过了，就没必要为了"读一次书名"加载整个阅读器
+            if root.is_dir():
+                cached = self._store(root).load_pages()
+                if not self._has_pending(cached):
+                    logger.info(
+                        "[跳过] %d-%d 已经全部是正式页，直接聚合（不启动浏览器）",
+                        settings.start_page,
+                        settings.end_page,
+                    )
+                    return self._finalize(
+                        self._store(root),
+                        cached,
+                        fetched=0,
+                        book_title=self._fallback_title(),
+                    )
             cookies = cookie_ops.load_cookies(
                 cookie_file=settings.cookie_path, cookie_string=settings.cookie_string
             )
@@ -175,6 +190,11 @@ class Scraper:
                 error_exc=exc,
             )
 
+    # ------------------------------------------------------------ 抓取走位
+
+    #: 连续失败达到这个次数就停下本轮（站点异常时不要反复敲）
+    MAX_CONSECUTIVE_FAILURES = 3
+
     def _scrape(
         self,
         reader: Reader,
@@ -183,6 +203,24 @@ class Scraper:
         pages: dict[int, Page],
         book_title: str,
     ) -> ScrapeResult:
+        """抓取 ``[start, end]``，目标是**每页最多只加载一次**。
+
+        走位策略（与原实现的关键差别）
+        ------------------------------
+        原实现：先跳到 ``min(todo)``，再从 ``min`` 一页页走到 ``max``。
+        于是"阅读器停在 p10、要抓 1-7"这种常见情形会倒着抓一遍、
+        **再正向空翻一遍**：已经抓过的页被浏览器重新加载 6 次，纯属浪费请求。
+
+        现在每一步只朝"下一个还没抓到的页"走：
+
+        * 中间那些页都已抓过（或关掉了顺手缓存）→ 直接搜索跳页过去，不空翻；
+        * 到达目标后只顺着**连续待抓**的页往前走，碰到已抓过的页/范围边界立刻停；
+        * 走位或抓取失败记进 ``failed`` 并跳过该页，连续失败
+          :attr:`MAX_CONSECUTIVE_FAILURES` 次才停下本轮（重跑即续抓）。
+
+        ``on_route`` 仍负责"顺手缓存"路上经过的页，但仅缓存的页**不下载插图**：
+        那些页可能永远用不到，为它们发请求是纯浪费，等它转正时再补。
+        """
         settings = self.settings
         todo = [
             p
@@ -200,47 +238,111 @@ class Scraper:
             len(pages),
             len(todo),
         )
-
         if not todo:
             logger.info("[跳过] 范围内所有页都已是正式页，直接聚合")
             return self._finalize(store, pages, fetched=0, book_title=book_title)
 
         http = reader.browser.to_requests_session()
         low, high = min(todo), max(todo)
+        failed: set[int] = set()
+
+        def is_pending(page_no: int) -> bool:
+            return (
+                page_no in todo_set
+                and page_no not in failed
+                and not self._is_intentional(pages, page_no)
+            )
+
+        def next_target() -> int | None:
+            for page_no in range(low, high + 1):
+                if is_pending(page_no):
+                    return page_no
+            return None
 
         def on_route(page_no: int) -> None:
-            """翻页途中的回调：目标页正式抓，路过的页按需顺手缓存。"""
+            """翻页途中经过的页：待抓的顺手正式抓，范围外的按需顺手缓存。"""
             nonlocal fetched
-            if page_no in todo_set:
-                if not self._is_intentional(pages, page_no) and self._capture(
-                    reader, parser, store, pages, http, page_no, intentional=True
-                ):
+            if is_pending(page_no):
+                if self._capture(reader, parser, store, pages, http, page_no, intentional=True):
                     fetched += 1
                 return
-            if not settings.opportunistic or page_no in pages:
+            if not settings.opportunistic or page_no in pages or page_no in failed:
                 return
             self._capture(reader, parser, store, pages, http, page_no, intentional=False)
 
         try:
-            logger.info("[前往] p%d%s", low, "（沿途顺手缓存）" if settings.opportunistic else "")
-            reader.goto_page_smart(low, on_page=on_route)
-
-            current = low
+            consecutive = 0
             while True:
-                if not self._is_intentional(pages, current) and self._capture(
-                    reader, parser, store, pages, http, current, intentional=True
-                ):
-                    fetched += 1
+                target = next_target()
+                if target is None:
+                    break
 
-                if current >= high:
-                    break
+                current = reader.current_page()
+                # 走这一段若是"白走"（中间页全抓过了，或干脆关掉了顺手缓存），
+                # 就强制走搜索跳页：max_direct=0 会让 goto_page_smart 直接选搜索分支
+                skip_walk = (
+                    settings.use_search_jump
+                    and target > current + 1
+                    and (
+                        not settings.opportunistic
+                        or all(self._is_intentional(pages, p) for p in range(current + 1, target))
+                    )
+                )
+                logger.info("[前往] p%d（%s）", target, "搜索跳页" if skip_walk else "逐页翻")
+
                 try:
-                    reader.next_page()
-                except Exception as exc:  # noqa: BLE001 - 翻页中断即停止扫描
-                    logger.warning("翻页失败（p%d -> p%d）：%s", current, current + 1, exc)
-                    break
-                current += 1
-                reader.browser.sleep_random()
+                    reader.goto_page_smart(
+                        target, on_page=on_route, max_direct=0 if skip_walk else None
+                    )
+                except CookieExpiredError:
+                    raise
+                except ReaderError as exc:
+                    consecutive += 1
+                    failed.add(target)
+                    logger.warning(
+                        "前往 p%d 失败（%s），已连续失败 %d 次", target, exc, consecutive
+                    )
+                    if consecutive >= self.MAX_CONSECUTIVE_FAILURES:
+                        logger.error("连续 %d 次走位失败，停下本轮（重跑可续抓）", consecutive)
+                        break
+                    continue
+                except Exception as exc:  # noqa: BLE001 - 非预期异常必须暴露，不吞
+                    raise RuntimeError(f"前往 p%d 时出现未预期异常: {exc}") from exc
+
+                captured = True
+                if is_pending(target):
+                    captured = self._capture(
+                        reader, parser, store, pages, http, target, intentional=True
+                    )
+                    if captured:
+                        fetched += 1
+                if not captured:
+                    consecutive += 1
+                    failed.add(target)
+                    logger.warning("p%d 抓取失败，跳过（已连续失败 %d 次）", target, consecutive)
+                    if consecutive >= self.MAX_CONSECUTIVE_FAILURES:
+                        logger.error("连续 %d 页抓取失败，停下本轮（重跑可续抓）", consecutive)
+                        break
+                    continue
+                consecutive = 0
+
+                # 顺着"连续待抓"的页往前走；遇到已抓过的页或范围边界就停，
+                # 这样不会出现"走过一遍再空翻回来"的重复加载
+                while True:
+                    nxt = target + 1
+                    if nxt > high or not is_pending(nxt):
+                        break
+                    try:
+                        reader.next_page()
+                    except CookieExpiredError:
+                        raise
+                    except ReaderError as exc:
+                        logger.warning("翻页失败（p%d -> p%d）：%s，重新规划走位", target, nxt, exc)
+                        break
+                    target = nxt
+                    if self._capture(reader, parser, store, pages, http, target, intentional=True):
+                        fetched += 1
+                    reader.browser.sleep_random()
         except Exception as exc:  # noqa: BLE001 - 记录后仍要聚合已完成的部分
             error = exc
             if isinstance(exc, ReaderError):
@@ -292,7 +394,12 @@ class Scraper:
                 reader.browser.sleep_random((0.5, 1.0))
                 continue
 
-            store.attach_images(page, http)
+            if intentional:
+                # 只有正式页才下载插图：仅缓存的页可能永远不会用到，
+                # 为它们发 HTTP 请求是纯浪费（等转正时会被重新解析并补下）
+                store.attach_images(page, http)
+            else:
+                logger.debug("p%d 仅缓存，跳过插图下载", page_no)
             written = store.save_page(page, intentional=intentional)
             if not written and not page.intentional:
                 # 磁盘上已有正式版本，本次读到的是缓存版本
@@ -394,3 +501,10 @@ class Scraper:
     def _is_intentional(pages: dict[int, Page], page_no: int) -> bool:
         page = pages.get(page_no)
         return bool(page and page.intentional)
+
+    def _has_pending(self, pages: dict[int, Page]) -> bool:
+        """配置范围内是否还有没正式抓过的页（纯离线判断，不碰浏览器）。"""
+        return any(
+            not self._is_intentional(pages, p)
+            for p in range(self.settings.start_page, self.settings.end_page + 1)
+        )

@@ -19,6 +19,9 @@
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -33,6 +36,25 @@ from douban_reader.settings import Settings
 pytestmark = pytest.mark.browser
 
 FIXTURE = Path(__file__).parent / "fixtures" / "reader_page.html"
+
+
+class _CountingHandler(BaseHTTPRequestHandler):
+    """返回一个极简页面，并记录被请求的路径（用于数"加载了几次"）。"""
+
+    protocol_version = "HTTP/1.0"
+    requested: list[str] = []
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 的接口名
+        type(self).requested.append(self.path)
+        body = b"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>ok</body></html>"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args: object) -> None:  # 静音，别污染测试输出
+        return
 
 
 @pytest.fixture(scope="module")
@@ -111,3 +133,57 @@ def test_falls_back_to_visible_page_container(browser: Browser) -> None:
         browser.execute_script(
             "document.querySelector('#ark-reader .page').classList.add('curr-page')"
         )
+
+
+class _QuietServer(ThreadingHTTPServer):
+    """浏览器会主动断开空闲连接、自动抓 favicon，这些都不该污染测试输出。"""
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        return
+
+
+@pytest.fixture(scope="module")
+def local_site() -> Iterator[str]:
+    """本地 HTTP 服务：请求会被逐条记录，用来数"目标页到底加载了几次"。"""
+    server = _QuietServer(("127.0.0.1", 0), _CountingHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_cookies_are_injected_before_the_first_navigation(local_site: str) -> None:
+    """cookie 必须在导航前写好，避免"先加载一页再刷新"的额外整页请求。
+
+    用本地服务数请求次数：走老流程（加载 → 注入 → 刷新）的话，
+    同一个路径会出现两次。
+    """
+    settings = Settings(headless=True)
+    _CountingHandler.requested.clear()
+
+    instance = Browser(
+        stealth_js=settings.stealth_js_path,
+        headless=True,
+        element_timeout=5.0,
+        sleep_range=(0.05, 0.1),
+        cookies=[{"name": "dsh_probe", "value": "1"}],
+    )
+    try:
+        instance.start()
+    except (WebDriverException, ConfigError, OSError) as exc:  # pragma: no cover
+        pytest.skip(f"无法启动 Chrome，跳过浏览器层烟囱测试：{exc}")
+    try:
+        instance.get(f"{local_site}/probe")
+        assert instance.execute_script("return document.cookie") == "dsh_probe=1"
+        assert [c["name"] for c in instance.get_cookies()] == ["dsh_probe"]
+    finally:
+        instance.quit()
+
+    hits = _CountingHandler.requested.count("/probe")
+    assert hits == 1, (
+        f"目标页只应加载一次（出现 {hits} 次说明注入后还刷新了一遍）；"
+        f"实际请求：{_CountingHandler.requested}"
+    )

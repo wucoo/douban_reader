@@ -19,6 +19,7 @@ import json
 import logging
 import random
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,35 @@ from selenium.webdriver.support.ui import WebDriverWait
 from .errors import ConfigError, NavigationError
 
 logger = logging.getLogger(__name__)
+
+#: CDP 的 sameSite 只认这三个值，其余写法一律忽略
+_CDP_SAME_SITE = ("Strict", "Lax", "None")
+
+
+def cdp_cookie_params(cookie: Mapping[str, Any], url: str) -> dict[str, Any]:
+    """把 selenium 风格的 cookie 转成 CDP ``Network.setCookie`` 的参数。
+
+    有 ``domain`` 就按 domain + path 写，没有就用 ``url`` 让 CDP 自行推导域与路径；
+    两者同时给会被 CDP 拒绝，所以必须二选一。
+    """
+    params: dict[str, Any] = {"name": str(cookie["name"]), "value": str(cookie["value"])}
+    domain = cookie.get("domain")
+    if domain:
+        params["domain"] = str(domain)
+        params["path"] = str(cookie.get("path") or "/")
+    else:
+        params["url"] = url
+    if cookie.get("secure"):
+        params["secure"] = True
+    if cookie.get("httpOnly"):
+        params["httpOnly"] = True
+    expiry = cookie.get("expiry")
+    if isinstance(expiry, (int, float)):
+        params["expires"] = float(expiry)
+    same_site = cookie.get("sameSite")
+    if same_site in _CDP_SAME_SITE:
+        params["sameSite"] = same_site
+    return params
 
 
 class Browser:
@@ -193,10 +223,18 @@ class Browser:
     ) -> None:
         """打开页面；首次导航后自动注入 cookie 并刷新一次。"""
         driver = self._require_driver()
-        driver.get(url)
         if inject_cookies and self._cookies and not self._cookies_injected:
-            self._inject_cookies_once()
-            driver.refresh()
+            if self._inject_cookies_cdp(url):
+                # 首选：导航前就把 cookie 写进 Cookie 库 → 目标页只加载一次
+                driver.get(url)
+            else:
+                # 回退：CDP 不可用时走"先加载 → 注入 → 刷新"（会多一次整页请求）
+                logger.debug("CDP 注入 cookie 不可用，回退到「加载 → 注入 → 刷新」流程")
+                driver.get(url)
+                self._inject_cookies_legacy()
+                driver.refresh()
+        else:
+            driver.get(url)
         if wait_until:
             WebDriverWait(driver, timeout or self.element_timeout).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, wait_until))
@@ -221,7 +259,35 @@ class Browser:
 
     # ------------------------------------------------------------ cookie
 
-    def _inject_cookies_once(self) -> None:
+    def _inject_cookies_cdp(self, url: str) -> bool:
+        """用 CDP ``Network.setCookie`` 在**导航之前**写入 cookie。
+
+        好处：不必"先加载一页再刷新"，阅读器页面只请求一次
+        （那是一个很重的页面，这一下省掉的是整页 + 几十个子请求）。
+        返回是否至少成功写入一条；全失败则调用方回退到老流程。
+        """
+        driver = self._require_driver()
+        try:
+            driver.execute_cdp_cmd("Network.enable", {})
+        except Exception as exc:  # noqa: BLE001 - 老版本驱动可能不支持
+            logger.debug("Network.enable 失败：%s", exc)
+            return False
+
+        applied = 0
+        for cookie in self._cookies:
+            try:
+                result = driver.execute_cdp_cmd("Network.setCookie", cdp_cookie_params(cookie, url))
+            except Exception as exc:  # noqa: BLE001 - 单条失败不影响其它 cookie
+                logger.debug("CDP 写入 cookie 失败 %s: %s", cookie.get("name"), exc)
+                continue
+            if isinstance(result, dict) and result.get("success"):
+                applied += 1
+        self._cookies_injected = applied > 0
+        logger.debug("CDP 注入 cookie：成功 %d/%d", applied, len(self._cookies))
+        return applied > 0
+
+    def _inject_cookies_legacy(self) -> None:
+        """老流程：页面已加载后用 ``add_cookie`` 注入（需要页面上下文）。"""
         if self._cookies_injected or not self._cookies:
             return
         driver = self._require_driver()
